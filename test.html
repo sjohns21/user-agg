@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Activity App - Tests</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 2rem;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #fff;
+            margin-bottom: 2rem;
+        }
+        .test-suite {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .test-suite h2 {
+            color: #4a9eff;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+        .test {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid #333;
+            background: #151515;
+            border-radius: 4px;
+        }
+        .test.pass {
+            border-left-color: #4caf50;
+        }
+        .test.fail {
+            border-left-color: #f44336;
+        }
+        .test-name {
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .test-result {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+        .test-error {
+            color: #ff6b6b;
+            margin-top: 0.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+        .summary {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-top: 2rem;
+            font-size: 1.1rem;
+        }
+        .summary.pass {
+            border: 2px solid #4caf50;
+        }
+        .summary.fail {
+            border: 2px solid #f44336;
+        }
+        .summary-stats {
+            margin-top: 1rem;
+            display: flex;
+            gap: 2rem;
+        }
+        .stat {
+            display: flex;
+            flex-direction: column;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+        button:hover {
+            background: #3a8eef;
+        }
+    </style>
+</head>
+<body>
+    <h1>User Activity App - Test Suite</h1>
+    <button onclick="runTests()">Run Tests</button>
+    <div id="test-results"></div>
+    <div id="summary"></div>
+
+    <script src="./app.js"></script>
+    <script>
+        let testResults = [];
+        let currentSuite = null;
+
+        function describe(suiteName, fn) {
+            currentSuite = { name: suiteName, tests: [] };
+            fn();
+            testResults.push(currentSuite);
+            currentSuite = null;
+        }
+
+        function test(testName, fn) {
+            if (!currentSuite) {
+                throw new Error('test() must be called inside describe()');
+            }
+            currentSuite.tests.push({ name: testName, fn });
+        }
+
+        function expect(actual) {
+            return {
+                toBe(expected) {
+                    if (actual !== expected) {
+                        throw new Error(`Expected ${JSON.stringify(expected)}, but got ${JSON.stringify(actual)}`);
+                    }
+                },
+                toEqual(expected) {
+                    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+                        throw new Error(`Expected ${JSON.stringify(expected)}, but got ${JSON.stringify(actual)}`);
+                    }
+                },
+                toBeGreaterThan(expected) {
+                    if (actual <= expected) {
+                        throw new Error(`Expected ${actual} to be greater than ${expected}`);
+                    }
+                },
+                toBeLessThan(expected) {
+                    if (actual < expected) {
+                        throw new Error(`Expected ${actual} to be less than ${expected}`);
+                    }
+                },
+                toContain(expected) {
+                    if (!actual.includes(expected)) {
+                        throw new Error(`Expected ${JSON.stringify(actual)} to contain ${JSON.stringify(expected)}`);
+                    }
+                },
+                toBeTruthy() {
+                    if (!actual) {
+                        throw new Error(`Expected ${JSON.stringify(actual)} to be truthy`);
+                    }
+                },
+                toBeFalsy() {
+                    if (actual) {
+                        throw new Error(`Expected ${JSON.stringify(actual)} to be falsy`);
+                    }
+                },
+                toHaveLength(expected) {
+                    if (actual.length !== expected) {
+                        throw new Error(`Expected length ${expected}, but got ${actual.length}`);
+                    }
+                }
+            };
+        }
+
+        function runTests() {
+            // Clear previous results
+            testResults = [];
+            const originalStorage = localStorage.getItem(STORAGE_KEY);
+
+            // Run test suites
+            describe('Event Storage', () => {
+                test('seedDemoEvents creates events with correct structure', () => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    const events = seedDemoEvents();
+                    expect(events.length).toBeGreaterThan(0);
+                    expect(events[0]).toHaveProperty('id');
+                    expect(events[0]).toHaveProperty('userId');
+                    expect(events[0]).toHaveProperty('sessionId');
+                    expect(events[0]).toHaveProperty('type');
+                    expect(events[0]).toHaveProperty('ts');
+                });
+
+                test('loadEvents returns seeded events when storage is empty', () => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    const events = loadEvents();
+                    expect(events.length).toBeGreaterThan(0);
+                    expect(events[0].userId).toBeTruthy();
+                });
+
+                test('loadEvents loads existing events from storage', () => {
+                    const testEvents = [
+                        { id: 'test-1', userId: 'u-test', sessionId: 's-test', type: 'page_view', ts: Date.now() }
+                    ];
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(testEvents));
+                    const events = loadEvents();
+                    expect(events.length).toBe(1);
+                    expect(events[0].id).toBe('test-1');
+                });
+
+                test('saveEvents persists events to storage', () => {
+                    const testEvents = [
+                        { id: 'test-2', userId: 'u-test', sessionId: 's-test', type: 'page_view', ts: Date.now() }
+                    ];
+                    saveEvents(testEvents);
+                    const loaded = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                    expect(loaded.length).toBe(1);
+                    expect(loaded[0].id).toBe('test-2');
+                });
+
+                test('recordEvent adds new event and updates storage', () => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    const initialEvents = seedDemoEvents();
+                    const initialCount = initialEvents.length;
+                    
+                    // Mock render to avoid DOM dependencies
+                    const originalRender = window.render;
+                    window.render = () => {};
+                    
+                    recordEvent({
+                        userId: 'u-test',
+                        userName: 'Test User',
+                        sessionId: 's-test',
+                        type: 'page_view',
+                        page: '/test'
+                    });
+                    
+                    const events = loadEvents();
+                    expect(events.length).toBe(initialCount + 1);
+                    expect(events[events.length - 1].type).toBe('page_view');
+                    expect(events[events.length - 1].page).toBe('/test');
+                    
+                    window.render = originalRender;
+                });
+            });
+
+            describe('Aggregation Logic', () => {
+                test('aggregate counts total events correctly', () => {
+                    const events = [
+                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'p1', ts: 2000 },
+                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                    ];
+                    const stats = aggregate(events);
+                    expect(stats.totalEvents).toBe(3);
+                });
+
+                test('aggregate counts unique users correctly', () => {
+                    const events = [
+                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
+                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 },
+                        { userId: 'u3', sessionId: 's3', type: 'page_view', ts: 4000 }
+                    ];
+                    const stats = aggregate(events);
+                    expect(stats.uniqueUsers).toBe(3);
+                });
+
+                test('aggregate counts sessions correctly', () => {
+                    const events = [
+                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
+                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                    ];
+                    const stats = aggregate(events);
+                    expect(stats.totalSessions).toBe(2);
+                });
+
+                test('aggregate tracks product views', () => {
+                    const events = [
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 1000 },
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 2000 },
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'summit-backpack', ts: 3000 }
+                    ];
+                    const stats = aggregate(events);
+                    expect(stats.productViews.get('aurora-lamp')).toBe(2);
+                    expect(stats.productViews.get('summit-backpack')).toBe(1);
+                });
+
+                test('aggregate tracks add to cart events', () => {
+                    const events = [
+                        { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'aurora-lamp', ts: 1000 },
+                        { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'aurora-lamp', ts: 2000 }
+                    ];
+                    const stats = aggregate(events);
+                    expect(stats.productAdds.get('aurora-lamp')).toBe(2);
+                });
+
+                test('aggregate calculates conversion rate correctly', () => {
+                    const events = [
+                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                        { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'p1', ts: 2000 },
+                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                    ];
+                    const stats = aggregate(events);
+                    expect(stats.conversionRate).toBe(50); // 1 out of 2 sessions converted
+                });
+
+                test('aggregate calculates average events per session', () => {
+                    const events = [
+                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
+                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                    ];
+                    const stats = aggregate(events);
+                    expect(stats.avgEventsPerSession).toBe('1.5');
+                });
+
+                test('aggregate identifies top product by views', () => {
+                    const events = [
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 1000 },
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 2000 },
+                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'summit-backpack', ts: 3000 }
+                    ];
+                    const stats = aggregate(events);
+                    expect(stats.topProduct.id).toBe('aurora-lamp');
+                });
+
+                test('aggregate creates session summaries with conversion flag', () => {
+                    const events = [
+                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'add_to_cart', productId: 'p1', productName: 'Product1', ts: 2000 },
+                        { userId: 'u2', userName: 'User2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                    ];
+                    const stats = aggregate(events);
+                    const session1 = stats.sessionSummaries.find(s => s.sessionId === 's1');
+                    const session2 = stats.sessionSummaries.find(s => s.sessionId === 's2');
+                    expect(session1.conversion).toBe(true);
+                    expect(session2.conversion).toBe(false);
+                });
+
+                test('aggregate tracks products touched per session', () => {
+                    const events = [
+                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p1', productName: 'Product1', ts: 1000 },
+                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p2', productName: 'Product2', ts: 2000 },
+                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p1', productName: 'Product1', ts: 3000 }
+                    ];
+                    const stats = aggregate(events);
+                    const session = stats.sessionSummaries.find(s => s.sessionId === 's1');
+                    expect(session.productsTouched.length).toBe(2); // Unique products
+                    expect(session.productsTouched).toContain('Product1');
+                    expect(session.productsTouched).toContain('Product2');
+                });
+            });
+
+            describe('Insights Generation', () => {
+                test('buildInsights generates top product insight when product exists', () => {
+                    const stats = {
+                        topProduct: { id: 'aurora-lamp', name: 'Aurora Lamp' },
+                        productViews: new Map([['aurora-lamp', 5]]),
+                        productAdds: new Map([['aurora-lamp', 2]]),
+                        sessionSummaries: []
+                    };
+                    const insights = buildInsights(stats);
+                    expect(insights.length).toBeGreaterThan(0);
+                    const topProductInsight = insights.find(i => i.title.includes('Aurora Lamp'));
+                    expect(topProductInsight).toBeTruthy();
+                    expect(topProductInsight.sentiment).toBe('positive');
+                });
+
+                test('buildInsights detects short visits', () => {
+                    const stats = {
+                        topProduct: null,
+                        productViews: new Map(),
+                        productAdds: new Map(),
+                        sessionSummaries: [
+                            { count: 1 },
+                            { count: 2 },
+                            { count: 1 }
+                        ]
+                    };
+                    const insights = buildInsights(stats);
+                    const shortVisitInsight = insights.find(i => i.title.includes('Short visits'));
+                    expect(shortVisitInsight).toBeTruthy();
+                    expect(shortVisitInsight.sentiment).toBe('warn');
+                });
+
+                test('buildInsights generates engagement depth insight', () => {
+                    const stats = {
+                        topProduct: null,
+                        productViews: new Map(),
+                        productAdds: new Map(),
+                        sessionSummaries: [],
+                        avgEventsPerSession: '3.5'
+                    };
+                    const insights = buildInsights(stats);
+                    const engagementInsight = insights.find(i => i.title.includes('Engagement depth'));
+                    expect(engagementInsight).toBeTruthy();
+                });
+
+                test('buildInsights marks engagement as positive when avg >= 4', () => {
+                    const stats = {
+                        topProduct: null,
+                        productViews: new Map(),
+                        productAdds: new Map(),
+                        sessionSummaries: [],
+                        avgEventsPerSession: '4.5'
+                    };
+                    const insights = buildInsights(stats);
+                    const engagementInsight = insights.find(i => i.title.includes('Engagement depth'));
+                    expect(engagementInsight.sentiment).toBe('positive');
+                });
+            });
+
+            describe('Utility Functions', () => {
+                test('formatTime formats timestamp correctly', () => {
+                    const ts = Date.now();
+                    const formatted = formatTime(ts);
+                    expect(typeof formatted).toBe('string');
+                    expect(formatted.length).toBeGreaterThan(0);
+                });
+
+                test('newId generates unique IDs', () => {
+                    const id1 = newId();
+                    const id2 = newId();
+                    expect(id1).toBeTruthy();
+                    expect(id2).toBeTruthy();
+                    expect(id1).not.toBe(id2);
+                });
+            });
+
+            // Restore original storage
+            if (originalStorage) {
+                localStorage.setItem(STORAGE_KEY, originalStorage);
+            } else {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+
+            // Render results
+            renderTestResults();
+        }
+
+        function renderTestResults() {
+            const container = document.getElementById('test-results');
+            const summaryContainer = document.getElementById('summary');
+            
+            container.innerHTML = '';
+            
+            let totalTests = 0;
+            let passedTests = 0;
+            let failedTests = 0;
+
+            testResults.forEach(suite => {
+                const suiteDiv = document.createElement('div');
+                suiteDiv.className = 'test-suite';
+                suiteDiv.innerHTML = `<h2>${suite.name}</h2>`;
+                
+                suite.tests.forEach(testCase => {
+                    totalTests++;
+                    const testDiv = document.createElement('div');
+                    testDiv.className = 'test';
+                    
+                    try {
+                        testCase.fn();
+                        passedTests++;
+                        testDiv.classList.add('pass');
+                        testDiv.innerHTML = `
+                            <div class="test-name">✓ ${testCase.name}</div>
+                            <div class="test-result">Passed</div>
+                        `;
+                    } catch (error) {
+                        failedTests++;
+                        testDiv.classList.add('fail');
+                        testDiv.innerHTML = `
+                            <div class="test-name">✗ ${testCase.name}</div>
+                            <div class="test-result">Failed</div>
+                            <div class="test-error">${error.message}</div>
+                        `;
+                    }
+                    
+                    suiteDiv.appendChild(testDiv);
+                });
+                
+                container.appendChild(suiteDiv);
+            });
+
+            // Render summary
+            const allPassed = failedTests === 0;
+            summaryContainer.className = `summary ${allPassed ? 'pass' : 'fail'}`;
+            summaryContainer.innerHTML = `
+                <h2>Test Summary</h2>
+                <div class="summary-stats">
+                    <div class="stat">
+                        <div class="stat-value" style="color: ${allPassed ? '#4caf50' : '#f44336'}">${totalTests}</div>
+                        <div class="stat-label">Total Tests</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" style="color: #4caf50">${passedTests}</div>
+                        <div class="stat-label">Passed</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-value" style="color: #f44336">${failedTests}</div>
+                        <div class="stat-label">Failed</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Auto-run tests on load
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(runTests, 100);
+        });
+    </script>
+</body>
+</html>
+
