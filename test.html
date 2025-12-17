@@ -122,12 +122,66 @@
         button:hover {
             background: #3a8eef;
         }
+
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #4a9eff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .last-run {
+            color: #aaa;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            font-style: italic;
+        }
+
+        .loading-overlay {
+            background: rgba(26, 26, 26, 0.9);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        .loading-overlay .loading {
+            width: 32px;
+            height: 32px;
+            border-width: 3px;
+            margin: 0 auto 1rem;
+            display: block;
+        }
     </style>
 </head>
 
 <body>
     <h1>User Activity App - Test Suite</h1>
-    <button onclick="runTests()">Run Tests</button>
+    <div>
+        <button id="run-tests-btn">Run Tests</button>
+        <div id="last-run" class="last-run"></div>
+    </div>
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loading"></div>
+        <p>Running tests...</p>
+    </div>
     <div id="test-results"></div>
     <div id="summary"></div>
 
@@ -232,12 +286,25 @@
         }
 
         function runTests() {
+            // Show loading state
+            const loadingOverlay = document.getElementById('loading-overlay');
+            const runBtn = document.getElementById('run-tests-btn');
+            const testResultsDiv = document.getElementById('test-results');
+            const summaryDiv = document.getElementById('summary');
+
+            loadingOverlay.style.display = 'block';
+            runBtn.disabled = true;
+            testResultsDiv.innerHTML = '';
+            summaryDiv.innerHTML = '';
+
             // Clear previous results
             testResults = [];
 
             // Verify functions are available
             if (typeof seedDemoEvents === 'undefined' || typeof newId === 'undefined' || typeof aggregate === 'undefined') {
-                document.getElementById('test-results').innerHTML = `
+                loadingOverlay.style.display = 'none';
+                runBtn.disabled = false;
+                testResultsDiv.innerHTML = `
                     <div class="test-suite">
                         <h2>Error</h2>
                         <div class="test fail">
@@ -247,271 +314,308 @@
                         </div>
                     </div>
                 `;
+                updateLastRunTime();
                 return;
             }
 
             const originalStorage = localStorage.getItem(STORAGE_KEY);
 
-            // Run test suites
-            describe('Event Storage', () => {
-                test('seedDemoEvents creates events with correct structure', () => {
-                    localStorage.removeItem(STORAGE_KEY);
-                    const events = seedDemoEvents();
-                    expect(events.length).toBeGreaterThan(0);
-                    expect(events[0]).toHaveProperty('id');
-                    expect(events[0]).toHaveProperty('userId');
-                    expect(events[0]).toHaveProperty('sessionId');
-                    expect(events[0]).toHaveProperty('type');
-                    expect(events[0]).toHaveProperty('ts');
-                });
+            // Use setTimeout to allow UI to update before running tests
+            setTimeout(() => {
+                try {
 
-                test('loadEvents returns seeded events when storage is empty', () => {
-                    localStorage.removeItem(STORAGE_KEY);
-                    const events = loadEvents();
-                    expect(events.length).toBeGreaterThan(0);
-                    expect(events[0].userId).toBeTruthy();
-                });
+                    // Run test suites
+                    describe('Event Storage', () => {
+                        test('seedDemoEvents creates events with correct structure', () => {
+                            localStorage.removeItem(STORAGE_KEY);
+                            const events = seedDemoEvents();
+                            expect(events.length).toBeGreaterThan(0);
+                            expect(events[0]).toHaveProperty('id');
+                            expect(events[0]).toHaveProperty('userId');
+                            expect(events[0]).toHaveProperty('sessionId');
+                            expect(events[0]).toHaveProperty('type');
+                            expect(events[0]).toHaveProperty('ts');
+                        });
 
-                test('loadEvents loads existing events from storage', () => {
-                    const testEvents = [
-                        { id: 'test-1', userId: 'u-test', sessionId: 's-test', type: 'page_view', ts: Date.now() }
-                    ];
-                    localStorage.setItem(STORAGE_KEY, JSON.stringify(testEvents));
-                    const events = loadEvents();
-                    expect(events.length).toBe(1);
-                    expect(events[0].id).toBe('test-1');
-                });
+                        test('loadEvents returns seeded events when storage is empty', () => {
+                            localStorage.removeItem(STORAGE_KEY);
+                            const events = loadEvents();
+                            expect(events.length).toBeGreaterThan(0);
+                            expect(events[0].userId).toBeTruthy();
+                        });
 
-                test('saveEvents persists events to storage', () => {
-                    const testEvents = [
-                        { id: 'test-2', userId: 'u-test', sessionId: 's-test', type: 'page_view', ts: Date.now() }
-                    ];
-                    saveEvents(testEvents);
-                    const loaded = JSON.parse(localStorage.getItem(STORAGE_KEY));
-                    expect(loaded.length).toBe(1);
-                    expect(loaded[0].id).toBe('test-2');
-                });
+                        test('loadEvents loads existing events from storage', () => {
+                            const testEvents = [
+                                { id: 'test-1', userId: 'u-test', sessionId: 's-test', type: 'page_view', ts: Date.now() }
+                            ];
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(testEvents));
+                            const events = loadEvents();
+                            expect(events.length).toBe(1);
+                            expect(events[0].id).toBe('test-1');
+                        });
 
-                test('recordEvent adds new event and updates storage', () => {
-                    localStorage.removeItem(STORAGE_KEY);
-                    const initialEvents = seedDemoEvents();
-                    const initialCount = initialEvents.length;
+                        test('saveEvents persists events to storage', () => {
+                            const testEvents = [
+                                { id: 'test-2', userId: 'u-test', sessionId: 's-test', type: 'page_view', ts: Date.now() }
+                            ];
+                            saveEvents(testEvents);
+                            const loaded = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                            expect(loaded.length).toBe(1);
+                            expect(loaded[0].id).toBe('test-2');
+                        });
 
-                    // Mock render to avoid DOM dependencies
-                    const originalRender = window.render;
-                    window.render = () => { };
+                        test('recordEvent adds new event and updates storage', () => {
+                            localStorage.removeItem(STORAGE_KEY);
+                            const initialEvents = seedDemoEvents();
+                            const initialCount = initialEvents.length;
 
-                    recordEvent({
-                        userId: 'u-test',
-                        userName: 'Test User',
-                        sessionId: 's-test',
-                        type: 'page_view',
-                        page: '/test'
+                            // Mock render to avoid DOM dependencies
+                            const originalRender = window.render;
+                            window.render = () => { };
+
+                            recordEvent({
+                                userId: 'u-test',
+                                userName: 'Test User',
+                                sessionId: 's-test',
+                                type: 'page_view',
+                                page: '/test'
+                            });
+
+                            const events = loadEvents();
+                            expect(events.length).toBe(initialCount + 1);
+                            expect(events[events.length - 1].type).toBe('page_view');
+                            expect(events[events.length - 1].page).toBe('/test');
+
+                            window.render = originalRender;
+                        });
                     });
 
-                    const events = loadEvents();
-                    expect(events.length).toBe(initialCount + 1);
-                    expect(events[events.length - 1].type).toBe('page_view');
-                    expect(events[events.length - 1].page).toBe('/test');
+                    describe('Aggregation Logic', () => {
+                        test('aggregate counts total events correctly', () => {
+                            const events = [
+                                { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'p1', ts: 2000 },
+                                { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                            ];
+                            const stats = aggregate(events);
+                            expect(stats.totalEvents).toBe(3);
+                        });
 
-                    window.render = originalRender;
-                });
-            });
+                        test('aggregate counts unique users correctly', () => {
+                            const events = [
+                                { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
+                                { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 },
+                                { userId: 'u3', sessionId: 's3', type: 'page_view', ts: 4000 }
+                            ];
+                            const stats = aggregate(events);
+                            expect(stats.uniqueUsers).toBe(3);
+                        });
 
-            describe('Aggregation Logic', () => {
-                test('aggregate counts total events correctly', () => {
-                    const events = [
-                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'p1', ts: 2000 },
-                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
-                    ];
-                    const stats = aggregate(events);
-                    expect(stats.totalEvents).toBe(3);
-                });
+                        test('aggregate counts sessions correctly', () => {
+                            const events = [
+                                { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
+                                { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                            ];
+                            const stats = aggregate(events);
+                            expect(stats.totalSessions).toBe(2);
+                        });
 
-                test('aggregate counts unique users correctly', () => {
-                    const events = [
-                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
-                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 },
-                        { userId: 'u3', sessionId: 's3', type: 'page_view', ts: 4000 }
-                    ];
-                    const stats = aggregate(events);
-                    expect(stats.uniqueUsers).toBe(3);
-                });
+                        test('aggregate tracks product views', () => {
+                            const events = [
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 1000 },
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 2000 },
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'summit-backpack', ts: 3000 }
+                            ];
+                            const stats = aggregate(events);
+                            expect(stats.productViews.get('aurora-lamp')).toBe(2);
+                            expect(stats.productViews.get('summit-backpack')).toBe(1);
+                        });
 
-                test('aggregate counts sessions correctly', () => {
-                    const events = [
-                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
-                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
-                    ];
-                    const stats = aggregate(events);
-                    expect(stats.totalSessions).toBe(2);
-                });
+                        test('aggregate tracks add to cart events', () => {
+                            const events = [
+                                { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'aurora-lamp', ts: 1000 },
+                                { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'aurora-lamp', ts: 2000 }
+                            ];
+                            const stats = aggregate(events);
+                            expect(stats.productAdds.get('aurora-lamp')).toBe(2);
+                        });
 
-                test('aggregate tracks product views', () => {
-                    const events = [
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 1000 },
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 2000 },
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'summit-backpack', ts: 3000 }
-                    ];
-                    const stats = aggregate(events);
-                    expect(stats.productViews.get('aurora-lamp')).toBe(2);
-                    expect(stats.productViews.get('summit-backpack')).toBe(1);
-                });
+                        test('aggregate calculates conversion rate correctly', () => {
+                            const events = [
+                                { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                                { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'p1', ts: 2000 },
+                                { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                            ];
+                            const stats = aggregate(events);
+                            expect(stats.conversionRate).toBe(50); // 1 out of 2 sessions converted
+                        });
 
-                test('aggregate tracks add to cart events', () => {
-                    const events = [
-                        { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'aurora-lamp', ts: 1000 },
-                        { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'aurora-lamp', ts: 2000 }
-                    ];
-                    const stats = aggregate(events);
-                    expect(stats.productAdds.get('aurora-lamp')).toBe(2);
-                });
+                        test('aggregate calculates average events per session', () => {
+                            const events = [
+                                { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
+                                { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                            ];
+                            const stats = aggregate(events);
+                            expect(stats.avgEventsPerSession).toBe('1.5');
+                        });
 
-                test('aggregate calculates conversion rate correctly', () => {
-                    const events = [
-                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
-                        { userId: 'u1', sessionId: 's1', type: 'add_to_cart', productId: 'p1', ts: 2000 },
-                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
-                    ];
-                    const stats = aggregate(events);
-                    expect(stats.conversionRate).toBe(50); // 1 out of 2 sessions converted
-                });
+                        test('aggregate identifies top product by views', () => {
+                            const events = [
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 1000 },
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 2000 },
+                                { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'summit-backpack', ts: 3000 }
+                            ];
+                            const stats = aggregate(events);
+                            expect(stats.topProduct.id).toBe('aurora-lamp');
+                        });
 
-                test('aggregate calculates average events per session', () => {
-                    const events = [
-                        { userId: 'u1', sessionId: 's1', type: 'page_view', ts: 1000 },
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', ts: 2000 },
-                        { userId: 'u2', sessionId: 's2', type: 'page_view', ts: 3000 }
-                    ];
-                    const stats = aggregate(events);
-                    expect(stats.avgEventsPerSession).toBe('1.5');
-                });
+                        test('aggregate creates session summaries with conversion flag', () => {
+                            const events = [
+                                { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'page_view', ts: 1000 },
+                                { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'add_to_cart', productId: 'p1', productName: 'Product1', ts: 2000 },
+                                { userId: 'u2', userName: 'User2', sessionId: 's2', type: 'page_view', ts: 3000 }
+                            ];
+                            const stats = aggregate(events);
+                            const session1 = stats.sessionSummaries.find(s => s.sessionId === 's1');
+                            const session2 = stats.sessionSummaries.find(s => s.sessionId === 's2');
+                            expect(session1.conversion).toBe(true);
+                            expect(session2.conversion).toBe(false);
+                        });
 
-                test('aggregate identifies top product by views', () => {
-                    const events = [
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 1000 },
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'aurora-lamp', ts: 2000 },
-                        { userId: 'u1', sessionId: 's1', type: 'product_view', productId: 'summit-backpack', ts: 3000 }
-                    ];
-                    const stats = aggregate(events);
-                    expect(stats.topProduct.id).toBe('aurora-lamp');
-                });
+                        test('aggregate tracks products touched per session', () => {
+                            const events = [
+                                { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p1', productName: 'Product1', ts: 1000 },
+                                { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p2', productName: 'Product2', ts: 2000 },
+                                { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p1', productName: 'Product1', ts: 3000 }
+                            ];
+                            const stats = aggregate(events);
+                            const session = stats.sessionSummaries.find(s => s.sessionId === 's1');
+                            expect(session.productsTouched.length).toBe(2); // Unique products
+                            expect(session.productsTouched).toContain('Product1');
+                            expect(session.productsTouched).toContain('Product2');
+                        });
+                    });
 
-                test('aggregate creates session summaries with conversion flag', () => {
-                    const events = [
-                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'page_view', ts: 1000 },
-                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'add_to_cart', productId: 'p1', productName: 'Product1', ts: 2000 },
-                        { userId: 'u2', userName: 'User2', sessionId: 's2', type: 'page_view', ts: 3000 }
-                    ];
-                    const stats = aggregate(events);
-                    const session1 = stats.sessionSummaries.find(s => s.sessionId === 's1');
-                    const session2 = stats.sessionSummaries.find(s => s.sessionId === 's2');
-                    expect(session1.conversion).toBe(true);
-                    expect(session2.conversion).toBe(false);
-                });
+                    describe('Insights Generation', () => {
+                        test('buildInsights generates top product insight when product exists', () => {
+                            const stats = {
+                                topProduct: { id: 'aurora-lamp', name: 'Aurora Lamp' },
+                                productViews: new Map([['aurora-lamp', 5]]),
+                                productAdds: new Map([['aurora-lamp', 2]]),
+                                sessionSummaries: []
+                            };
+                            const insights = buildInsights(stats);
+                            expect(insights.length).toBeGreaterThan(0);
+                            const topProductInsight = insights.find(i => i.title.includes('Aurora Lamp'));
+                            expect(topProductInsight).toBeTruthy();
+                            expect(topProductInsight.sentiment).toBe('positive');
+                        });
 
-                test('aggregate tracks products touched per session', () => {
-                    const events = [
-                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p1', productName: 'Product1', ts: 1000 },
-                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p2', productName: 'Product2', ts: 2000 },
-                        { userId: 'u1', userName: 'User1', sessionId: 's1', type: 'product_view', productId: 'p1', productName: 'Product1', ts: 3000 }
-                    ];
-                    const stats = aggregate(events);
-                    const session = stats.sessionSummaries.find(s => s.sessionId === 's1');
-                    expect(session.productsTouched.length).toBe(2); // Unique products
-                    expect(session.productsTouched).toContain('Product1');
-                    expect(session.productsTouched).toContain('Product2');
-                });
-            });
+                        test('buildInsights detects short visits', () => {
+                            const stats = {
+                                topProduct: null,
+                                productViews: new Map(),
+                                productAdds: new Map(),
+                                sessionSummaries: [
+                                    { count: 1 },
+                                    { count: 2 },
+                                    { count: 1 }
+                                ]
+                            };
+                            const insights = buildInsights(stats);
+                            const shortVisitInsight = insights.find(i => i.title.includes('Short visits'));
+                            expect(shortVisitInsight).toBeTruthy();
+                            expect(shortVisitInsight.sentiment).toBe('warn');
+                        });
 
-            describe('Insights Generation', () => {
-                test('buildInsights generates top product insight when product exists', () => {
-                    const stats = {
-                        topProduct: { id: 'aurora-lamp', name: 'Aurora Lamp' },
-                        productViews: new Map([['aurora-lamp', 5]]),
-                        productAdds: new Map([['aurora-lamp', 2]]),
-                        sessionSummaries: []
-                    };
-                    const insights = buildInsights(stats);
-                    expect(insights.length).toBeGreaterThan(0);
-                    const topProductInsight = insights.find(i => i.title.includes('Aurora Lamp'));
-                    expect(topProductInsight).toBeTruthy();
-                    expect(topProductInsight.sentiment).toBe('positive');
-                });
+                        test('buildInsights generates engagement depth insight', () => {
+                            const stats = {
+                                topProduct: null,
+                                productViews: new Map(),
+                                productAdds: new Map(),
+                                sessionSummaries: [],
+                                avgEventsPerSession: '3.5'
+                            };
+                            const insights = buildInsights(stats);
+                            const engagementInsight = insights.find(i => i.title.includes('Engagement depth'));
+                            expect(engagementInsight).toBeTruthy();
+                        });
 
-                test('buildInsights detects short visits', () => {
-                    const stats = {
-                        topProduct: null,
-                        productViews: new Map(),
-                        productAdds: new Map(),
-                        sessionSummaries: [
-                            { count: 1 },
-                            { count: 2 },
-                            { count: 1 }
-                        ]
-                    };
-                    const insights = buildInsights(stats);
-                    const shortVisitInsight = insights.find(i => i.title.includes('Short visits'));
-                    expect(shortVisitInsight).toBeTruthy();
-                    expect(shortVisitInsight.sentiment).toBe('warn');
-                });
+                        test('buildInsights marks engagement as positive when avg >= 4', () => {
+                            const stats = {
+                                topProduct: null,
+                                productViews: new Map(),
+                                productAdds: new Map(),
+                                sessionSummaries: [],
+                                avgEventsPerSession: '4.5'
+                            };
+                            const insights = buildInsights(stats);
+                            const engagementInsight = insights.find(i => i.title.includes('Engagement depth'));
+                            expect(engagementInsight.sentiment).toBe('positive');
+                        });
+                    });
 
-                test('buildInsights generates engagement depth insight', () => {
-                    const stats = {
-                        topProduct: null,
-                        productViews: new Map(),
-                        productAdds: new Map(),
-                        sessionSummaries: [],
-                        avgEventsPerSession: '3.5'
-                    };
-                    const insights = buildInsights(stats);
-                    const engagementInsight = insights.find(i => i.title.includes('Engagement depth'));
-                    expect(engagementInsight).toBeTruthy();
-                });
+                    describe('Utility Functions', () => {
+                        test('formatTime formats timestamp correctly', () => {
+                            const ts = Date.now();
+                            const formatted = formatTime(ts);
+                            expect(typeof formatted).toBe('string');
+                            expect(formatted.length).toBeGreaterThan(0);
+                        });
 
-                test('buildInsights marks engagement as positive when avg >= 4', () => {
-                    const stats = {
-                        topProduct: null,
-                        productViews: new Map(),
-                        productAdds: new Map(),
-                        sessionSummaries: [],
-                        avgEventsPerSession: '4.5'
-                    };
-                    const insights = buildInsights(stats);
-                    const engagementInsight = insights.find(i => i.title.includes('Engagement depth'));
-                    expect(engagementInsight.sentiment).toBe('positive');
-                });
-            });
+                        test('newId generates unique IDs', () => {
+                            const id1 = newId();
+                            const id2 = newId();
+                            expect(id1).toBeTruthy();
+                            expect(id2).toBeTruthy();
+                            expect(id1).not.toBe(id2);
+                        });
+                    });
 
-            describe('Utility Functions', () => {
-                test('formatTime formats timestamp correctly', () => {
-                    const ts = Date.now();
-                    const formatted = formatTime(ts);
-                    expect(typeof formatted).toBe('string');
-                    expect(formatted.length).toBeGreaterThan(0);
-                });
+                    // Restore original storage
+                    if (originalStorage) {
+                        localStorage.setItem(STORAGE_KEY, originalStorage);
+                    } else {
+                        localStorage.removeItem(STORAGE_KEY);
+                    }
 
-                test('newId generates unique IDs', () => {
-                    const id1 = newId();
-                    const id2 = newId();
-                    expect(id1).toBeTruthy();
-                    expect(id2).toBeTruthy();
-                    expect(id1).not.toBe(id2);
-                });
-            });
+                    // Render results
+                    renderTestResults();
+                } catch (error) {
+                    console.error('Error running tests:', error);
+                    loadingOverlay.style.display = 'none';
+                    runBtn.disabled = false;
+                    testResultsDiv.innerHTML = `
+                        <div class="test-suite">
+                            <h2>Error</h2>
+                            <div class="test fail">
+                                <div class="test-name">✗ Test execution failed</div>
+                                <div class="test-result">Failed</div>
+                                <div class="test-error">${error.message}</div>
+                            </div>
+                        </div>
+                    `;
+                    updateLastRunTime();
+                } finally {
+                    // Hide loading and re-enable button
+                    loadingOverlay.style.display = 'none';
+                    runBtn.disabled = false;
+                    updateLastRunTime();
+                }
+            }, 50);
+        }
 
-            // Restore original storage
-            if (originalStorage) {
-                localStorage.setItem(STORAGE_KEY, originalStorage);
-            } else {
-                localStorage.removeItem(STORAGE_KEY);
+        function updateLastRunTime() {
+            const lastRunEl = document.getElementById('last-run');
+            if (lastRunEl) {
+                const now = new Date();
+                const timeStr = now.toLocaleTimeString();
+                const dateStr = now.toLocaleDateString();
+                lastRunEl.textContent = `Tests last ran at ${timeStr} on ${dateStr}`;
             }
-
-            // Render results
-            renderTestResults();
         }
 
         function renderTestResults() {
@@ -580,8 +684,17 @@
             `;
         }
 
-        // Auto-run tests on load
+        // Set up button click handler
+        function setupButton() {
+            const btn = document.getElementById('run-tests-btn');
+            if (btn) {
+                btn.addEventListener('click', runTests);
+            }
+        }
+
+        // Auto-run tests on load and set up button
         window.addEventListener('DOMContentLoaded', () => {
+            setupButton();
             setTimeout(runTests, 100);
         });
     </script>
