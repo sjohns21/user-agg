@@ -130,7 +130,7 @@
         }
 
         function expect(actual) {
-            return {
+            const matchers = {
                 toBe(expected) {
                     if (actual !== expected) {
                         throw new Error(`Expected ${JSON.stringify(expected)}, but got ${JSON.stringify(actual)}`);
@@ -172,11 +172,58 @@
                     }
                 }
             };
+
+            // Add .not support
+            matchers.not = {
+                toBe(expected) {
+                    if (actual === expected) {
+                        throw new Error(`Expected ${JSON.stringify(actual)} not to be ${JSON.stringify(expected)}`);
+                    }
+                },
+                toEqual(expected) {
+                    if (JSON.stringify(actual) === JSON.stringify(expected)) {
+                        throw new Error(`Expected ${JSON.stringify(actual)} not to equal ${JSON.stringify(expected)}`);
+                    }
+                },
+                toBeTruthy() {
+                    if (actual) {
+                        throw new Error(`Expected ${JSON.stringify(actual)} not to be truthy`);
+                    }
+                },
+                toBeFalsy() {
+                    if (!actual) {
+                        throw new Error(`Expected ${JSON.stringify(actual)} not to be falsy`);
+                    }
+                },
+                toContain(expected) {
+                    if (actual.includes(expected)) {
+                        throw new Error(`Expected ${JSON.stringify(actual)} not to contain ${JSON.stringify(expected)}`);
+                    }
+                }
+            };
+
+            return matchers;
         }
 
         function runTests() {
             // Clear previous results
             testResults = [];
+            
+            // Verify functions are available
+            if (typeof seedDemoEvents === 'undefined' || typeof newId === 'undefined' || typeof aggregate === 'undefined') {
+                document.getElementById('test-results').innerHTML = `
+                    <div class="test-suite">
+                        <h2>Error</h2>
+                        <div class="test fail">
+                            <div class="test-name">✗ Functions not loaded</div>
+                            <div class="test-result">Failed</div>
+                            <div class="test-error">Functions from app.js are not accessible. Make sure app.js is loaded before running tests.</div>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
             const originalStorage = localStorage.getItem(STORAGE_KEY);
 
             // Run test suites
