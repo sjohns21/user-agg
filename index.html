@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Activity Insights (Local)</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+    <header class="hero">
+        <div>
+            <p class="eyebrow">Local-only demo • No backend</p>
+            <h1>User Activity & Product Insights</h1>
+            <p class="lede">Tracks on-site events, aggregates them, and surfaces product insights. Data lives entirely
+                in your browser (localStorage).</p>
+            <div class="actions">
+                <button id="simulate-visit">Simulate New Visit</button>
+                <button id="reset-demo" class="secondary">Reset to 3-visit demo</button>
+            </div>
+        </div>
+        <div class="hero-card">
+            <p class="hero-title">Live Tracker</p>
+            <p class="hero-value" id="live-session-count">—</p>
+            <p class="hero-sub">sessions stored locally</p>
+        </div>
+    </header>
+
+    <main>
+        <section>
+            <h2>Key Activity Metrics</h2>
+            <div class="card-grid" id="metric-cards"></div>
+        </section>
+
+        <section class="insights">
+            <div class="section-header">
+                <h2>Product Insights</h2>
+                <span class="pill" id="last-updated">Updated just now</span>
+            </div>
+            <div id="insight-list" class="insight-list"></div>
+        </section>
+
+        <section>
+            <div class="section-header">
+                <h2>Recent Events</h2>
+                <div class="controls">
+                    <button id="record-pageview" class="ghost">Record page view</button>
+                    <button id="record-product" class="ghost">Record product click</button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Session</th>
+                            <th>Action</th>
+                            <th>Page / Product</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="event-rows"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <div class="section-header">
+                <h2>Session-level Aggregates</h2>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Session</th>
+                            <th>User</th>
+                            <th>Events</th>
+                            <th>Products Touched</th>
+                            <th>Conversion</th>
+                            <th>Last Active</th>
+                        </tr>
+                    </thead>
+                    <tbody id="session-rows"></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>All data is stored locally in your browser. Refresh-safe and backend-free.</p>
+    </footer>
+
+    <script type="module" src="./app.js"></script>
+</body>
+
+</html>
